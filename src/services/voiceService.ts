@@ -32,6 +32,50 @@ export class VoiceService {
     this.volume = value;
   }
 
+  async playTTS(text: string, voice: VoiceName) {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    }
+
+    try {
+      const response = await this.ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: voice },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        // Decode and play immediately
+        const binary = atob(base64Audio);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const floatData = new Float32Array(bytes.length / 2);
+        const view = new DataView(bytes.buffer);
+        for (let i = 0; i < floatData.length; i++) {
+          floatData[i] = view.getInt16(i * 2, true) / 0x7FFF;
+        }
+
+        const buffer = this.audioContext.createBuffer(1, floatData.length, 24000);
+        buffer.getChannelData(0).set(floatData);
+
+        const source = this.audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.audioContext.destination);
+        source.start(0);
+      }
+    } catch (error) {
+      console.error("TTS Error:", error);
+    }
+  }
+
   async connect(config: {
     voice: VoiceName;
     systemInstruction: string;

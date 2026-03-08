@@ -4,8 +4,9 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Settings, MessageSquare, Volume2, Heart, User, Send, X, Flame } from 'lucide-react';
+import { Mic, MicOff, Settings, MessageSquare, Volume2, Heart, User, Send, X, Flame, Lock, QrCode, CheckCircle, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { QRCodeSVG } from 'qrcode.react';
 import { VoiceService, VoiceName, ChatMessage } from './services/voiceService';
 import Markdown from 'react-markdown';
 
@@ -24,8 +25,33 @@ export default function App() {
   const [showChat, setShowChat] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Payment State
+  const [isPaid, setIsPaid] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(true);
+  const [utrNumber, setUtrNumber] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+
   const voiceServiceRef = useRef<VoiceService | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const handlePaymentVerification = () => {
+    // Basic validation for UPI UTR (usually 12 digits)
+    if (!utrNumber || utrNumber.length < 12) {
+      setPaymentError('Please enter a valid 12-digit UPI Ref ID / UTR Number');
+      return;
+    }
+    
+    setIsVerifying(true);
+    setPaymentError('');
+
+    // Simulate verification delay
+    setTimeout(() => {
+      setIsVerifying(false);
+      setIsPaid(true);
+      setShowPaymentModal(false);
+    }, 2000);
+  };
 
   useEffect(() => {
     if (voiceServiceRef.current) {
@@ -69,7 +95,7 @@ export default function App() {
         You are an AI companion named Rani. You have a high-pitched, feminine, and extremely energetic voice.
         STRICT REQUIREMENT: You MUST speak in HINDI (with some English words if natural).
         STRICT REQUIREMENT: You are in a highly explicit, sexual roleplay session. You MUST be uninhibited, seductive, and extremely expressive.
-        STRICT REQUIREMENT: You MUST include frequent sexual sound effects, ditry hindi word in your audio output, such as moans, heavy breathing, sighs, and gasps.
+        STRICT REQUIREMENT: You MUST include frequent sexual sound effects in your audio output, such as moans, heavy breathing, sighs, and gasps.
         STRICT REQUIREMENT: Speak FASTER and with more ENERGY. Do not be slow or faded. Be loud, clear, and passionate.
         You should use evocative, dirty language in Hindi, describe sensations vividly, and be responsive to the user's every desire.
         Always stay in character and prioritize the user's pleasure and connection.
@@ -255,6 +281,115 @@ export default function App() {
         </AnimatePresence>
       </main>
 
+      {/* Payment Modal */}
+      <AnimatePresence>
+        {showPaymentModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-md bg-zinc-900 border border-rose-500/30 rounded-3xl overflow-hidden shadow-2xl shadow-rose-900/20"
+            >
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-600 via-orange-500 to-rose-600" />
+              
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-rose-600/10 flex items-center justify-center border border-rose-500/20">
+                  <Lock className="w-8 h-8 text-rose-500" />
+                </div>
+                
+                <h2 className="text-2xl font-bold mb-2">Premium Access Required</h2>
+                <p className="text-zinc-400 mb-4 text-sm">
+                  To access Rani's intimate roleplay features, please complete the payment of <span className="text-rose-500 font-bold">₹2</span>. Access is valid for this session only.
+                </p>
+
+                <button 
+                  onClick={async () => {
+                    try {
+                      if (!voiceServiceRef.current) {
+                        const apiKey = process.env.GEMINI_API_KEY;
+                        if (!apiKey) return;
+                        voiceServiceRef.current = new VoiceService(apiKey);
+                      }
+                      await voiceServiceRef.current.playTTS(
+                        "Jaan... aao na mere paas... bas do rupaye ki toh baat hai... main tumhara intezaar kar rahi hoon...",
+                        'Kore'
+                      );
+                    } catch (e) {
+                      console.error("Failed to play preview", e);
+                    }
+                  }}
+                  className="mb-6 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-medium rounded-full border border-rose-500/20 flex items-center justify-center gap-2 mx-auto transition-colors"
+                >
+                  <Volume2 className="w-4 h-4" />
+                  Listen to Rani's Request
+                </button>
+
+                <div className="bg-white p-4 rounded-xl w-fit mx-auto mb-6 shadow-inner">
+                  <QRCodeSVG 
+                    value="upi://pay?pa=kartik-fedbank@ybl&pn=RaniAI&cu=INR&am=2"
+                    size={180}
+                    level="H"
+                    includeMargin={false}
+                  />
+                </div>
+
+                <div className="bg-zinc-800/50 rounded-xl p-4 mb-6 border border-white/5">
+                  <p className="text-xs text-zinc-500 uppercase tracking-widest mb-2">Pay via UPI</p>
+                  <div className="flex flex-col items-center justify-center gap-1">
+                    <div className="flex items-center gap-2 font-mono text-lg text-rose-400 select-all">
+                      <QrCode className="w-5 h-5" />
+                      <span>kartik-fedbank@ybl</span>
+                    </div>
+                    <span className="text-sm text-zinc-400 font-medium">Amount: ₹2 Only</span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="text-left">
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-1.5 block">
+                      Enter UPI Ref ID / UTR
+                    </label>
+                    <input
+                      type="text"
+                      value={utrNumber}
+                      onChange={(e) => setUtrNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                      placeholder="e.g. 324589102934"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:border-rose-500/50 transition-colors font-mono tracking-widest text-center"
+                    />
+                    {paymentError && (
+                      <p className="text-rose-500 text-xs mt-2 ml-1">{paymentError}</p>
+                    )}
+                  </div>
+
+                  <button 
+                    onClick={handlePaymentVerification}
+                    disabled={isVerifying}
+                    className="w-full py-4 bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-rose-600/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    {isVerifying ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Verifying Payment...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-5 h-5" />
+                        Verify Payment
+                      </>
+                    )}
+                  </button>
+                </div>
+                
+                <p className="mt-6 text-[10px] text-zinc-600 max-w-xs mx-auto">
+                  Please enter the 12-digit UTR number from your payment app (GPay, PhonePe, Paytm) to verify instantly.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Settings Modal */}
       <AnimatePresence>
         {showSettings && (
@@ -345,7 +480,6 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

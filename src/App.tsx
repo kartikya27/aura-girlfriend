@@ -8,7 +8,7 @@ import { Mic, MicOff, Settings, MessageSquare, Volume2, Heart, User, Send, X, Fl
 import { motion, AnimatePresence } from 'motion/react';
 import { VoiceService, VoiceName, ChatMessage } from './services/voiceService';
 import Markdown from 'react-markdown';
-
+import { Analytics } from "@vercel/analytics/next"
 const VOICES: { name: VoiceName; label: string; gender: 'male' | 'female'; description: string }[] = [
   { name: 'Kore', label: 'Rani (Premium Girlfriend)', gender: 'female', description: 'High-pitched, energetic, and seductive. Optimized for the best female roleplay experience.' },
 ];
@@ -345,6 +345,7 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+      <Analytics />
     </div>
   );
 }

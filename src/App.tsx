@@ -4,11 +4,12 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Settings, MessageSquare, Volume2, Heart, User, Send, X, Flame, Lock, QrCode, CheckCircle, CreditCard } from 'lucide-react';
+import { Mic, MicOff, Settings, MessageSquare, Volume2, Heart, User, Send, X, Flame, Lock, QrCode, CheckCircle, CreditCard, Upload, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { VoiceService, VoiceName, ChatMessage } from './services/voiceService';
 import Markdown from 'react-markdown';
+import { GoogleGenAI } from "@google/genai";
 
 const VOICES: { name: VoiceName; label: string; gender: 'male' | 'female'; description: string }[] = [
   { name: 'Kore', label: 'Rani (Premium Girlfriend)', gender: 'female', description: 'High-pitched, energetic, and seductive. Optimized for the best female roleplay experience.' },
@@ -28,29 +29,96 @@ export default function App() {
   // Payment State
   const [isPaid, setIsPaid] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(true);
-  const [utrNumber, setUtrNumber] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [paymentError, setPaymentError] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const voiceServiceRef = useRef<VoiceService | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handlePaymentVerification = () => {
-    // Basic validation for UPI UTR (usually 12 digits)
-    if (!utrNumber || utrNumber.length < 12) {
-      setPaymentError('Please enter a valid 12-digit UPI Ref ID / UTR Number');
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+        setPaymentError('');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const verifyPaymentScreenshot = async () => {
+    if (!selectedImage) {
+      setPaymentError('Please upload a screenshot of your payment.');
       return;
     }
-    
+
     setIsVerifying(true);
     setPaymentError('');
 
-    // Simulate verification delay
-    setTimeout(() => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error("API Key missing");
+
+      const ai = new GoogleGenAI({ apiKey });
+      
+      const base64Data = selectedImage.split(',')[1];
+      const today = new Date().toLocaleDateString('en-IN', { 
+        day: 'numeric', month: 'long', year: 'numeric' 
+      });
+
+      const prompt = `
+        Analyze this image strictly. It must be a valid UPI payment screenshot.
+        
+        Verification Criteria:
+        1. Is it a successful payment? (Look for "Paid", "Successful", green checkmarks).
+        2. Is the payee UPI ID 'kartik-fedbank@ybl' (or similar)?
+        3. Is the payment date TODAY (${today})? (Allow for small variations in date format like DD/MM/YYYY or DD Mon YYYY).
+        4. Is the amount ₹2?
+        5. Is this a real screenshot of a payment app (GPay, PhonePe, Paytm, etc.) and not a random photo?
+
+        Return a JSON object:
+        {
+          "valid": boolean,
+          "reason": "string explaining why it is valid or invalid"
+        }
+      `;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+            ]
+          }
+        ],
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const responseText = response.text;
+      if (!responseText) throw new Error("No response from AI");
+      
+      const verification = JSON.parse(responseText);
+
+      if (verification.valid) {
+        setIsPaid(true);
+        setShowPaymentModal(false);
+      } else {
+        setPaymentError(verification.reason || "Verification failed. Please upload a valid screenshot.");
+      }
+
+    } catch (err) {
+      console.error("Verification error:", err);
+      setPaymentError("Could not verify image. Please try again or ensure the image is clear.");
+    } finally {
       setIsVerifying(false);
-      setIsPaid(true);
-      setShowPaymentModal(false);
-    }, 2000);
+    }
   };
 
   useEffect(() => {
@@ -348,29 +416,62 @@ export default function App() {
                 <div className="space-y-4">
                   <div className="text-left">
                     <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1 mb-1.5 block">
-                      Enter UPI Ref ID / UTR
+                      Upload Payment Screenshot
                     </label>
-                    <input
-                      type="text"
-                      value={utrNumber}
-                      onChange={(e) => setUtrNumber(e.target.value.replace(/\D/g, '').slice(0, 12))}
-                      placeholder="e.g. 324589102934"
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:border-rose-500/50 transition-colors font-mono tracking-widest text-center"
-                    />
+                    
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`relative w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                        selectedImage 
+                          ? 'border-rose-500/50 bg-rose-500/5' 
+                          : 'border-zinc-700 hover:border-rose-500/30 hover:bg-white/5'
+                      }`}
+                    >
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        onChange={handleImageUpload}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      
+                      {selectedImage ? (
+                        <div className="relative w-full h-full p-2">
+                          <img 
+                            src={selectedImage} 
+                            alt="Payment Screenshot" 
+                            className="w-full h-full object-contain rounded-lg"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-lg">
+                            <p className="text-xs text-white font-medium">Click to change</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <Upload className="w-8 h-8 text-zinc-500 mb-2" />
+                          <p className="text-xs text-zinc-400">Click to upload screenshot</p>
+                          <p className="text-[10px] text-zinc-600 mt-1">Supports JPG, PNG</p>
+                        </>
+                      )}
+                    </div>
+
                     {paymentError && (
-                      <p className="text-rose-500 text-xs mt-2 ml-1">{paymentError}</p>
+                      <div className="flex items-start gap-2 mt-3 text-rose-500 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <p className="text-xs">{paymentError}</p>
+                      </div>
                     )}
                   </div>
 
                   <button 
-                    onClick={handlePaymentVerification}
-                    disabled={isVerifying}
+                    onClick={verifyPaymentScreenshot}
+                    disabled={isVerifying || !selectedImage}
                     className="w-full py-4 bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-rose-600/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                   >
                     {isVerifying ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Verifying Payment...
+                        Verifying Screenshot...
                       </>
                     ) : (
                       <>
@@ -382,7 +483,7 @@ export default function App() {
                 </div>
                 
                 <p className="mt-6 text-[10px] text-zinc-600 max-w-xs mx-auto">
-                  Please enter the 12-digit UTR number from your payment app (GPay, PhonePe, Paytm) to verify instantly.
+                  Please upload a clear screenshot of your successful transaction. Our AI will verify the date, amount, and payee instantly.
                 </p>
               </div>
             </motion.div>

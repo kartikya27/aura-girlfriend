@@ -1,0 +1,7 @@
+{
+  "name": "Aura Voice AI",
+  "description": "An expressive, voice-based AI companion for intimate roleplay and emotional connection, supporting multiple languages and personalities.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

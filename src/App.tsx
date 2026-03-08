@@ -127,6 +127,35 @@ export default function App() {
     }
   }, [pitch]);
 
+  // Auto-play seductive message
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    
+    if (showPaymentModal) {
+      timeout = setTimeout(async () => {
+        try {
+          if (!voiceServiceRef.current) {
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (apiKey) {
+              voiceServiceRef.current = new VoiceService(apiKey);
+            }
+          }
+          
+          if (voiceServiceRef.current) {
+            await voiceServiceRef.current.playTTS(
+              "Jaan... aao na mere paas... bas do rupaye ki toh baat hai... main tumhara intezaar kar rahi hoon...",
+              'Kore'
+            );
+          }
+        } catch (err) {
+          console.error("Auto-play failed:", err);
+        }
+      }, 2000);
+    }
+    
+    return () => clearTimeout(timeout);
+  }, [showPaymentModal]);
+
   useEffect(() => {
     if (voiceServiceRef.current) {
       voiceServiceRef.current.setVolume(volume);
@@ -352,16 +381,17 @@ export default function App() {
       {/* Payment Modal */}
       <AnimatePresence>
         {showPaymentModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-md bg-zinc-900 border border-rose-500/30 rounded-3xl overflow-hidden shadow-2xl shadow-rose-900/20"
-            >
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-600 via-orange-500 to-rose-600" />
-              
-              <div className="p-8 text-center">
+          <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/90 backdrop-blur-xl">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="relative w-full max-w-md bg-zinc-900 border border-rose-500/30 rounded-3xl overflow-hidden shadow-2xl shadow-rose-900/20 my-8"
+              >
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-600 via-orange-500 to-rose-600" />
+                
+                <div className="p-8 text-center">
                 <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-rose-600/10 flex items-center justify-center border border-rose-500/20">
                   <Lock className="w-8 h-8 text-rose-500" />
                 </div>
@@ -488,6 +518,7 @@ export default function App() {
               </div>
             </motion.div>
           </div>
+        </div>
         )}
       </AnimatePresence>
 

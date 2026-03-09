@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Settings, MessageSquare, Volume2, Heart, User, Send, X, Flame, Lock, QrCode, CheckCircle, CreditCard, Upload, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Settings, MessageSquare, Volume2, Heart, User, Send, X, Flame, Lock, QrCode, CheckCircle, CreditCard, Upload, AlertCircle, Clock, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { VoiceService, VoiceName, ChatMessage } from './services/voiceService';
@@ -12,14 +12,14 @@ import Markdown from 'react-markdown';
 import { GoogleGenAI } from "@google/genai";
 
 const VOICES: { name: VoiceName; label: string; gender: 'male' | 'female'; description: string }[] = [
-  { name: 'Kore', label: 'Rani (Premium Girlfriend)', gender: 'female', description: 'High-pitched, energetic, and seductive. Optimized for the best female roleplay experience.' },
+  { name: 'Kore', label: 'Pooja (Premium Girlfriend)', gender: 'female', description: 'High-pitched, energetic, and seductive. Optimized for the best female roleplay experience.' },
 ];
 
 export default function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [selectedVoice] = useState<VoiceName>('Kore');
-  const [pitch, setPitch] = useState(1.50); // Default to slightly higher pitch
+  const [pitch, setPitch] = useState(1.00); // Default to slightly higher pitch
   const [volume, setVolume] = useState(5.0); // Default to high volume
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [showSettings, setShowSettings] = useState(false);
@@ -27,15 +27,36 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   // Payment State
-  const [isPaid, setIsPaid] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(true);
+  const [isPaid, setIsPaid] = useState(() => {
+    const saved = localStorage.getItem('aura_isPaid');
+    return saved === 'true';
+  });
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [paymentError, setPaymentError] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Demo State
+  const [demoTimeLeft, setDemoTimeLeft] = useState(() => {
+    const saved = localStorage.getItem('aura_demoTimeLeft');
+    return saved !== null ? parseInt(saved, 10) : 120; // 2 minutes in seconds
+  });
 
   const voiceServiceRef = useRef<VoiceService | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('aura_isPaid', isPaid.toString());
+  }, [isPaid]);
+
+  useEffect(() => {
+    localStorage.setItem('aura_demoTimeLeft', demoTimeLeft.toString());
+    if (demoTimeLeft <= 0 && !isPaid) {
+      setShowPaymentModal(true);
+    }
+  }, [demoTimeLeft, isPaid]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -122,6 +143,40 @@ export default function App() {
     }
   };
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText('kartik-fedbank@ybl');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // Demo Timer
+  useEffect(() => {
+    if (isPaid || showPaymentModal || demoTimeLeft <= 0 || !isConnected) return;
+
+    const timer = setInterval(() => {
+      setDemoTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setShowPaymentModal(true);
+          if (voiceServiceRef.current) {
+            voiceServiceRef.current.disconnect();
+            setIsConnected(false);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isPaid, showPaymentModal, demoTimeLeft, isConnected]);
+
   useEffect(() => {
     if (voiceServiceRef.current) {
       voiceServiceRef.current.setPitch(pitch);
@@ -178,6 +233,11 @@ export default function App() {
       return;
     }
 
+    if (demoTimeLeft <= 0 && !isPaid) {
+      setShowPaymentModal(true);
+      return;
+    }
+
     setIsConnecting(true);
     setError(null);
 
@@ -190,7 +250,7 @@ export default function App() {
       voiceServiceRef.current.setVolume(volume);
       
       const systemInstruction = `
-        You are an AI companion named Rani. You have a high-pitched, feminine, and extremely energetic voice.
+        You are an AI companion named Pooja. You have a high-pitched, feminine, and extremely energetic voice.
         STRICT REQUIREMENT: You MUST speak in HINDI (with some English words if natural).
         STRICT REQUIREMENT: You are in a highly explicit, sexual roleplay session. You MUST be uninhibited, seductive, and extremely expressive.
         STRICT REQUIREMENT: You MUST include frequent sexual sound effects in your audio output, such as moans, heavy breathing, sighs, and gasps.
@@ -214,7 +274,13 @@ export default function App() {
 
       setIsConnected(true);
     } catch (err: any) {
-      setError(err.message || "Failed to connect");
+      console.error(err);
+      if (err.name === 'NotAllowedError' || err.message === 'Permission denied') {
+        setError("Microphone access denied. Please allow microphone permissions in your browser.");
+      } else {
+        setError(err.message || "Failed to connect");
+      }
+      setIsConnected(false);
     } finally {
       setIsConnecting(false);
     }
@@ -235,12 +301,20 @@ export default function App() {
             <Flame className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Aura Voice AI</h1>
+            <h1 className="text-xl font-semibold tracking-tight">AI Pooja</h1>
             <p className="text-xs text-rose-400 font-medium uppercase tracking-widest">Intimate Companion</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
+          {!isPaid && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 rounded-full">
+              <Clock className="w-4 h-4 text-rose-500" />
+              <span className="text-xs font-mono text-rose-500 font-medium">
+                Demo: {formatTime(demoTimeLeft)}
+              </span>
+            </div>
+          )}
           <button 
             onClick={() => setShowSettings(true)}
             className="p-2 rounded-full hover:bg-white/5 transition-colors"
@@ -399,7 +473,7 @@ export default function App() {
                 
                 <h2 className="text-2xl font-bold mb-2">Premium Access Required</h2>
                 <p className="text-zinc-400 mb-4 text-sm">
-                  To access Rani's intimate roleplay features, please complete the payment of <span className="text-rose-500 font-bold">₹2</span>. Access is valid for this session only.
+                  To access Pooja's intimate roleplay features, please complete the payment of <span className="text-rose-500 font-bold">₹2</span>. Access is valid for this session only.
                 </p>
 
                 <button 
@@ -421,12 +495,12 @@ export default function App() {
                   className="mb-6 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-medium rounded-full border border-rose-500/20 flex items-center justify-center gap-2 mx-auto transition-colors"
                 >
                   <Volume2 className="w-4 h-4" />
-                  Listen to Rani's Request
+                  Listen to Pooja's Request
                 </button>
 
                 <div className="bg-white p-4 rounded-xl w-fit mx-auto mb-6 shadow-inner">
                   <QRCodeSVG 
-                    value="upi://pay?pa=kartik-fedbank@ybl&pn=RaniAI&cu=INR&am=2"
+                    value="upi://pay?pa=kartik-fedbank@ybl&pn=PoojaAI&cu=INR&am=2"
                     size={180}
                     level="H"
                     includeMargin={false}
@@ -436,9 +510,12 @@ export default function App() {
                 <div className="bg-zinc-800/50 rounded-xl p-4 mb-6 border border-white/5">
                   <p className="text-xs text-zinc-500 uppercase tracking-widest mb-2">Pay via UPI</p>
                   <div className="flex flex-col items-center justify-center gap-1">
-                    <div className="flex items-center gap-2 font-mono text-lg text-rose-400 select-all">
+                    <div className="flex items-center gap-2 font-mono text-lg text-rose-400">
                       <QrCode className="w-5 h-5" />
-                      <span>kartik-fedbank@ybl</span>
+                      <span className="select-all">kartik-fedbank@ybl</span>
+                      <button onClick={handleCopy} className="p-1.5 hover:bg-white/10 rounded-md transition-colors ml-1">
+                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-zinc-400" />}
+                      </button>
                     </div>
                     <span className="text-sm text-zinc-400 font-medium">Amount: ₹2 Only</span>
                   </div>
@@ -554,7 +631,7 @@ export default function App() {
                     <input 
                       type="range" 
                       min="0.8" 
-                      max="1.5" 
+                      max="1.8" 
                       step="0.05" 
                       value={pitch}
                       onChange={(e) => setPitch(parseFloat(e.target.value))}

@@ -14,8 +14,6 @@ export class VoiceService {
   private audioContext: AudioContext | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
-  private audioQueue: Int16Array[] = [];
-  private isPlaying = false;
   private nextStartTime = 0;
   private pitch = 1.0;
   private volume = 4.0;
@@ -141,61 +139,47 @@ export class VoiceService {
       });
     } catch (err) {
       config.onError(err);
+      throw err;
     }
   }
 
   private handleAudioOutput(base64Data: string) {
+    if (!this.audioContext) return;
+
     const binary = atob(base64Data);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const pcmData = new Int16Array(bytes.buffer);
-    this.audioQueue.push(pcmData);
-    if (!this.isPlaying) {
-      this.playNextChunk();
-    }
-  }
-
-  private async playNextChunk() {
-    if (this.audioQueue.length === 0) {
-      this.isPlaying = false;
-      return;
-    }
-
-    this.isPlaying = true;
-    const pcmData = this.audioQueue.shift()!;
+    
     const floatData = new Float32Array(pcmData.length);
     for (let i = 0; i < pcmData.length; i++) {
       floatData[i] = pcmData[i] / 0x7FFF;
     }
 
-    const buffer = this.audioContext!.createBuffer(1, floatData.length, 16000);
+    // Live API output is 24000Hz
+    const buffer = this.audioContext.createBuffer(1, floatData.length, 24000);
     buffer.getChannelData(0).set(floatData);
 
-    const source = this.audioContext!.createBufferSource();
+    const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
-    
-    // Apply pitch (playbackRate)
     source.playbackRate.value = this.pitch;
-    
-    const gainNode = this.audioContext!.createGain();
+
+    const gainNode = this.audioContext.createGain();
     gainNode.gain.value = this.volume;
-    
+
     source.connect(gainNode);
-    gainNode.connect(this.audioContext!.destination);
+    gainNode.connect(this.audioContext.destination);
 
-    const startTime = Math.max(this.audioContext!.currentTime, this.nextStartTime);
-    source.start(startTime);
-    // Adjust nextStartTime based on playbackRate
-    this.nextStartTime = startTime + (buffer.duration / this.pitch);
+    // Schedule immediately, adding a small buffer if we're falling behind
+    if (this.nextStartTime < this.audioContext.currentTime) {
+      this.nextStartTime = this.audioContext.currentTime + 0.05;
+    }
 
-    source.onended = () => {
-      this.playNextChunk();
-    };
+    source.start(this.nextStartTime);
+    this.nextStartTime += buffer.duration / this.pitch;
   }
 
   private stopPlayback() {
-    this.audioQueue = [];
-    this.isPlaying = false;
     this.nextStartTime = 0;
   }
 

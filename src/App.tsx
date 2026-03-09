@@ -199,7 +199,7 @@ export default function App() {
           
           if (voiceServiceRef.current) {
             await voiceServiceRef.current.playTTS(
-              "Jaan... aao na mere paas... bas do rupaye ki toh baat hai... main tumhara intezaar kar rahi hoon...",
+              "Hellooo... Main Pooja bol rhi hu... aao na mere paas... bas do rupaye ki toh baat hai... main tumhara intezaar kar rahi hoon...",
               'Kore'
             );
           }

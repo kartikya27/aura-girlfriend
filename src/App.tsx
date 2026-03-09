@@ -12,7 +12,7 @@ import Markdown from 'react-markdown';
 import { GoogleGenAI } from "@google/genai";
 
 const VOICES: { name: VoiceName; label: string; gender: 'male' | 'female'; description: string }[] = [
-  { name: 'Kore', label: 'Rani (Premium Girlfriend)', gender: 'female', description: 'High-pitched, energetic, and seductive. Optimized for the best female roleplay experience.' },
+  { name: 'Kore', label: 'Pooja (Premium Girlfriend)', gender: 'female', description: 'High-pitched, energetic, and seductive. Optimized for the best female roleplay experience.' },
 ];
 
 export default function App() {
@@ -144,7 +144,7 @@ export default function App() {
           
           if (voiceServiceRef.current) {
             await voiceServiceRef.current.playTTS(
-              "Jaan... aao na mere paas... bas do rupaye ki toh baat hai... main tumhara intezaar kar rahi hoon...",
+              "Hellooo... Main Pooja bol rhi hu... aao na mere paas... bas do rupaye ki toh baat hai... main tumhara intezaar kar rahi hoon...",
               'Kore'
             );
           }
@@ -190,7 +190,7 @@ export default function App() {
       voiceServiceRef.current.setVolume(volume);
       
       const systemInstruction = `
-        You are an AI companion named Rani. You have a high-pitched, feminine, and extremely energetic voice.
+        You are an AI companion named Pooja. You have a high-pitched, feminine, and extremely energetic voice.
         STRICT REQUIREMENT: You MUST speak in HINDI (with some English words if natural).
         STRICT REQUIREMENT: You are in a highly explicit, sexual roleplay session. You MUST be uninhibited, seductive, and extremely expressive.
         STRICT REQUIREMENT: You MUST include frequent sexual sound effects in your audio output, such as moans, heavy breathing, sighs, and gasps.
@@ -399,7 +399,7 @@ export default function App() {
                 
                 <h2 className="text-2xl font-bold mb-2">Premium Access Required</h2>
                 <p className="text-zinc-400 mb-4 text-sm">
-                  To access Rani's intimate roleplay features, please complete the payment of <span className="text-rose-500 font-bold">₹2</span>. Access is valid for this session only.
+                  To access Pooja's intimate roleplay features, please complete the payment of <span className="text-rose-500 font-bold">₹2</span>. Access is valid for this session only.
                 </p>
 
                 <button 
@@ -421,12 +421,12 @@ export default function App() {
                   className="mb-6 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-medium rounded-full border border-rose-500/20 flex items-center justify-center gap-2 mx-auto transition-colors"
                 >
                   <Volume2 className="w-4 h-4" />
-                  Listen to Rani's Request
+                  Listen to Pooja's Request
                 </button>
 
                 <div className="bg-white p-4 rounded-xl w-fit mx-auto mb-6 shadow-inner">
                   <QRCodeSVG 
-                    value="upi://pay?pa=kartik-fedbank@ybl&pn=RaniAI&cu=INR&am=2"
+                    value="upi://pay?pa=kartik-fedbank@ybl&pn=PoojaAI&cu=INR&am=2"
                     size={180}
                     level="H"
                     includeMargin={false}
@@ -554,7 +554,7 @@ export default function App() {
                     <input 
                       type="range" 
                       min="0.8" 
-                      max="1.5" 
+                      max="1.8" 
                       step="0.05" 
                       value={pitch}
                       onChange={(e) => setPitch(parseFloat(e.target.value))}

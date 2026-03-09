@@ -64,6 +64,7 @@ export default function App() {
 
       const ai = new GoogleGenAI({ apiKey });
       
+      const mimeType = selectedImage.split(';')[0].split(':')[1];
       const base64Data = selectedImage.split(',')[1];
       const today = new Date().toLocaleDateString('en-IN', { 
         day: 'numeric', month: 'long', year: 'numeric' 
@@ -87,12 +88,12 @@ export default function App() {
       `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3-flash-preview",
         contents: [
           {
             parts: [
               { text: prompt },
-              { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+              { inlineData: { mimeType: mimeType, data: base64Data } }
             ]
           }
         ],
@@ -113,9 +114,9 @@ export default function App() {
         setPaymentError(verification.reason || "Verification failed. Please upload a valid screenshot.");
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Verification error:", err);
-      setPaymentError("Could not verify image. Please try again or ensure the image is clear.");
+      setPaymentError(err.message || "Could not verify image. Please try again or ensure the image is clear.");
     } finally {
       setIsVerifying(false);
     }
